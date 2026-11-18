@@ -1,0 +1,42 @@
+server:
+  port: ${SERVER_PORT:8080}
+spring:
+  application:
+    name: medisus-api
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:medisus}
+    username: ${DB_USER:medisus}
+    password: ${DB_PASSWORD:change-me}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:medisus}
+    password: ${RABBITMQ_PASSWORD:change-me}
+  ai:
+    model:
+      chat: ${MEDISUS_AI_PROVIDER:none}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      chat:
+        options:
+          model: ${OPENAI_MODEL:gpt-4o-mini}
+          temperature: 0
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 5MB
+  jackson:
+    default-property-inclusion: non_null
+medisus:
+  jwt:
+    secret: ${JWT_SECRET:replace-with-a-random-secret-at-least-32-characters}
+    expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+  ai:
+    enabled: ${MEDISUS_AI_ENABLED:false}
+  bootstrap:
+    manager-email: ${BOOTSTRAP_MANAGER_EMAIL:}
+    manager-password: ${BOOTSTRAP_MANAGER_PASSWORD:}
