@@ -8,6 +8,10 @@ O backend implementa cadastro e login com JWT, consulta de UBS, medicamentos e e
 
 O projeto usa Java 17, Spring Boot, Spring Security, Spring Data JPA, PostgreSQL, RabbitMQ, Spring AI, OpenAPI e Maven. Os testes usam H2 e mocks. Não há dados de demonstração incluídos no repositório. O campo de elegibilidade à Farmácia Popular permanece como `UNKNOWN`.
 
+## Material da disciplina
+
+A documentação específica de Disruptive Architectures: IoT, IoB & Generative IA está em [docs/entrega-disruptive-architectures.md](docs/entrega-disruptive-architectures.md). Ela é uma entrega separada do guia técnico de Java Advanced deste README.
+
 ## Requisitos
 
 Tenha Java 17 ou superior, Maven 3.9 ou superior e Docker Desktop com Docker Compose instalado. Para executar com Maven, use o Docker para iniciar PostgreSQL e RabbitMQ. A chave OpenAI é opcional e necessária somente para testar a identificação de receita com o provedor real.
