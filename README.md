@@ -8,10 +8,6 @@ O backend implementa cadastro e login com JWT, consulta de UBS, medicamentos e e
 
 O projeto usa Java 17, Spring Boot, Spring Security, Spring Data JPA, PostgreSQL, RabbitMQ, Spring AI, OpenAPI e Maven. Os testes usam H2 e mocks. Não há dados de demonstração incluídos no repositório. O campo de elegibilidade à Farmácia Popular permanece como `UNKNOWN`.
 
-## Material da disciplina
-
-A documentação específica de Disruptive Architectures: IoT, IoB & Generative IA está em [docs/entrega-disruptive-architectures.md](docs/entrega-disruptive-architectures.md). Ela é uma entrega separada do guia técnico de Java Advanced deste README.
-
 ## Requisitos
 
 Tenha Java 17 ou superior, Maven 3.9 ou superior e Docker Desktop com Docker Compose instalado. Para executar com Maven, use o Docker para iniciar PostgreSQL e RabbitMQ. A chave OpenAI é opcional e necessária somente para testar a identificação de receita com o provedor real.
@@ -184,60 +180,6 @@ As duas rotas exigem papel `MANAGER`.
 `POST /api/prescriptions/identify` exige papel `CITIZEN` e recebe um campo de formulário chamado `image`. Aceita JPEG, PNG ou WebP, com limite de 5 MB. A imagem é processada em memória e não é salva pelo backend. A análise real exige chave OpenAI e configuração do Spring AI. Sem o provedor habilitado, a resposta é `503 Service Unavailable`. O resultado deve ser revisado pela pessoa usuária e não representa diagnóstico ou disponibilidade de estoque.
 
 No aplicativo React Native, envie a imagem como `multipart/form-data` e não defina manualmente o cabeçalho `Content-Type`, para que o `fetch` crie o boundary corretamente.
-
-## Entrega de Disruptive Architectures: IA generativa e visão computacional
-
-### Problema e benefício para o cidadão
-
-Uma pessoa pode ter dificuldade para ler o nome de um medicamento escrito em uma receita. O MediSUS permite que um cidadão autenticado envie uma imagem e receba nomes de medicamentos que o modelo considera legíveis. A pessoa deve conferir as sugestões e só então consultar o estoque. A IA não confirma disponibilidade, não recomenda tratamento e não substitui orientação profissional.
-
-### Técnica escolhida e justificativa
-
-O aprofundamento escolhido é visão computacional com um modelo generativo multimodal pré treinado. O código integra Spring AI ao provedor OpenAI e usa `gpt-4o-mini` por padrão, configurável pela variável `OPENAI_MODEL`. A abordagem foi escolhida porque recebe a imagem diretamente e pode interpretar receitas com layouts diferentes sem treinar um modelo próprio. O projeto não implementa RAG, não treina um modelo de Machine Learning e não compara provedores ou modelos.
-
-O modelo recebe uma instrução para retornar somente nomes e dosagens claramente legíveis em um array JSON, sem diagnosticar, recomendar tratamentos, completar texto ilegível ou afirmar disponibilidade. O backend interpreta a resposta, mantém somente textos não vazios de até 160 caracteres e remove candidatos repetidos.
-
-### Fontes de dados e privacidade
-
-Não foi usado conjunto de dados externo ou de treinamento. A entrada é a imagem enviada pelo próprio usuário ao endpoint `POST /api/prescriptions/identify`. Quando a integração com OpenAI está habilitada, o backend encaminha os bytes da imagem ao provedor para inferência. O backend não grava a imagem em seu banco de dados, mas o envio a um serviço externo deve ser informado à pessoa usuária. Não envie receitas reais ou dados pessoais em testes ou evidências públicas. A chave de acesso ao provedor é privada e deve existir somente no ambiente local ou em um gerenciador de segredos.
-
-### Fluxo da arquitetura
-
-```mermaid
-flowchart LR
-    A[App do cidadão] -->|Imagem multipart e JWT| B[POST /api/prescriptions/identify]
-    B --> C[Validação de acesso, formato e tamanho]
-    C --> D[Spring AI]
-    D --> E[OpenAI gpt-4o-mini]
-    E --> F[Parser de candidatos]
-    F --> G[Lista de nomes sugeridos]
-    G --> H[Revisão pelo cidadão]
-    H --> I[Consulta separada ao estoque salvo]
-    D -->|IA desabilitada ou indisponível| J[Resposta 503]
-```
-
-### Evidências de avaliação
-
-Os testes automatizados podem ser reproduzidos na raiz do projeto com `mvn test`. No ambiente desta entrega, a suíte terminou com 7 testes executados, 0 falhas e 0 erros. Os resultados de IA abaixo vêm de testes unitários com um modelo simulado, não de uma chamada real ao OpenAI.
-
-1. `PrescriptionServiceTest.returnsOnlyDistinctTextCandidatesFromTheMockedModel`: o modelo simulado retorna um nome repetido, um número e um texto vazio. Resultado esperado e observado: somente `Paracetamol 500 mg`, uma vez. O teste também verifica a instrução para revisar o resultado.
-2. `PrescriptionServiceTest.reportsUnavailableWhenAiIsDisabled`: com a IA desabilitada, o serviço sinaliza indisponibilidade e não consulta o modelo. O teste passou.
-3. `StockServiceTest.replenishmentPublishesAnEventWithInventoryIdentifiersAndNames`: aumento de estoque publica o evento esperado usando mocks. Isso valida a regra unitária, mas não comprova comunicação com um RabbitMQ real.
-4. `StockServiceTest.rabbitConsumerNotifiesOnlyAlertsMatchingTheReplenishedUbs`: o consumidor simulado cria notificações para alertas da UBS correspondente ou de qualquer UBS, sem notificar um alerta de outra unidade. O teste passou.
-
-Os critérios implementados e cobertos pelos testes são retornar somente candidatos textuais válidos, remover duplicatas, instruir revisão humana e não chamar o modelo quando a funcionalidade está desabilitada. O projeto não mediu taxa de acerto, precisão, recall, latência ou custo do modelo. Não existe resultado quantitativo de qualidade da leitura e não se deve interpretar os testes simulados como prova da precisão do OpenAI.
-
-Antes de apresentar uma avaliação ao vivo, execute testes manuais com uma imagem legível, uma imagem ilegível, uma imagem vazia, um formato não aceito e a IA desabilitada. Registre para cada cenário a entrada de teste sem dados pessoais, o status HTTP e a resposta observada. Esses cenários manuais ainda não foram validados como chamadas reais nesta entrega. Capturas do Swagger podem complementar o registro, mas não são obrigatórias nem substituem os casos, resultados e limitações descritos aqui. Nunca publique receitas reais, chaves, senhas ou tokens nas capturas.
-
-### Limitações e relação com IoT e IoB
-
-A saída pode omitir ou interpretar incorretamente um medicamento, especialmente em imagens borradas, manuscritas ou com baixa resolução. O backend não compara as sugestões com um catálogo oficial e não confirma se o medicamento existe ou está disponível. O provedor real não foi exercitado pelos testes automatizados; a funcionalidade depende de chave válida, rede e disponibilidade do serviço externo. O endpoint valida o MIME informado, mas não verifica os bytes reais do arquivo.
-
-O código atual não conecta sensores, dispositivos IoT, dados biométricos ou fontes de IoB. RabbitMQ é usado para comunicação assíncrona entre componentes do backend; isso, por si só, não é uma integração IoT. Como evolução possível, sensores de temperatura em câmaras de armazenamento poderiam enviar leituras para alertar sobre condições inadequadas de conservação, mas essa funcionalidade não foi implementada nem avaliada neste projeto.
-
-### Onde conferir no código
-
-O endpoint e as validações de imagem estão em `src/main/java/br/com/medisus/api/api/PrescriptionController.java`. A integração com o provedor está em `src/main/java/br/com/medisus/api/ai/AiConfiguration.java`. A filtragem e o tratamento de indisponibilidade estão em `src/main/java/br/com/medisus/api/ai/PrescriptionService.java`. Os parâmetros de modelo estão em `src/main/resources/application.yml`. Os testes unitários de IA estão em `src/test/java/br/com/medisus/api/ai/PrescriptionServiceTest.java`.
 
 ## Conectar um aplicativo ou outro computador
 
