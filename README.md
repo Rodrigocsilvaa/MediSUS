@@ -1,278 +1,112 @@
 # MediSUS API
 
-API REST em Java 17 com Spring Boot para apoiar a busca de medicamentos em UBS da rede pública. O backend foi desenvolvido para a disciplina **Java Advanced** e expõe contratos HTTP consumíveis pelo aplicativo React Native da disciplina Mobile. Esta pasta contém somente o backend; o app Mobile não está implementado neste projeto.
+API REST para consulta de medicamentos e estoques em Unidades Básicas de Saúde. Este repositório contém o backend Java. O aplicativo React Native não está incluído aqui, portanto a integração com o aplicativo ainda precisa ser feita e testada pela equipe Mobile.
 
-## Equipe
+## O que o projeto faz
 
-- Natália Cristina
-- Nickolas Davi
-- Rodrigo Silva
-- Samara Vilela
-- Otávio Ferreira
+O backend implementa cadastro e login com JWT, consulta de UBS, medicamentos e estoques, manutenção desses registros por usuários autorizados, alertas de disponibilidade e notificações. Também contém um endpoint que pode analisar uma imagem de receita com Spring AI e OpenAI quando essa integração é configurada. A resposta da análise apresenta nomes candidatos para conferência humana, não um diagnóstico nem uma confirmação de estoque.
 
-Turma: **2TDSR**
+O projeto usa Java 17, Spring Boot, Spring Security, Spring Data JPA, PostgreSQL, RabbitMQ, Spring AI, OpenAPI e Maven. Os testes usam H2 e mocks. Não há dados de demonstração incluídos no repositório. O campo de elegibilidade à Farmácia Popular permanece como `UNKNOWN`.
 
-Os RMs estão reservados para o arquivo `IDENTIFICACAO.txt`, que será colocado somente no ZIP de entrega e não deve ser enviado como informação pessoal no README público.
+## Requisitos
 
-## Repositório
+Tenha Java 17 ou superior, Maven 3.9 ou superior e Docker Desktop com Docker Compose instalado. Para executar com Maven, use o Docker para iniciar PostgreSQL e RabbitMQ. A chave OpenAI é opcional e necessária somente para testar a identificação de receita com o provedor real.
 
-O repositório público informado para esta entrega é: https://github.com/Rodrigocsilvaa/MediSUS
+## Primeira execução com Docker
 
-## Status da integração
+1. Clone o repositório e entre na pasta do projeto.
 
-- Compilação Java 17 confirmada.
-- Maven `test` e `package` confirmados com **7 testes**, sem falhas.
-- Configuração do Docker Compose validada.
-- PostgreSQL, RabbitMQ e API não foram iniciados juntos neste ambiente, pois o Docker Engine estava desligado.
-- RabbitMQ, PostgreSQL e a chamada real ao OpenAI ainda dependem de execução com seus serviços e credenciais reais.
-- Não existe um aplicativo Mobile nesta pasta e não foi possível confirmar uma execução ponta a ponta com o app Mobile.
-- Este README documenta o contrato do backend e como o app React Native pode se conectar; não afirma que essa integração já tenha sido executada.
-
-## Tecnologias
-
-- Java 17
-- Spring Boot 3.4.4
-- Spring Web
-- Spring Data JPA
-- Spring Security
-- JWT com JJWT
-- Bean Validation
-- Spring AI com OpenAI
-- RabbitMQ AMQP
-- PostgreSQL
-- Springdoc OpenAPI/Swagger
-- Maven
-- Docker Compose
-- H2 para testes
-
-## Como o backend foi implementado
-
-1. **Camada API:** controllers REST recebem payloads JSON ou multipart, aplicam validação DTO e delegam regras aos services.
-2. **Domínio JPA:** entidades são persistidas com Spring Data JPA no PostgreSQL.
-3. **Regras de negócio:** services criam, atualizam, consultam e removem recursos e controlam reposição de estoque.
-4. **Segurança:** cadastro/login são públicos; todas as demais rotas `/api/**` exigem JWT. Filtros carregam o usuário e aplicam papéis.
-5. **Erros:** `@RestControllerAdvice` padroniza respostas com timestamp, status HTTP, error, mensagem, path e `fieldErrors` quando aplicável.
-6. **IA:** o endpoint multipart envia uma foto ao Spring AI/OpenAI e recebe somente nomes candidatos legíveis. Os candidatos não são gravados automaticamente como estoque.
-7. **Arquitetura distribuída:** ao aumentar a quantidade de estoque, a API publica um evento no RabbitMQ; um consumidor encontra alertas correspondentes e cria notificações persistidas.
-8. **Documentação:** Springdoc expõe Swagger e OpenAPI.
-
-## Modelo JPA
-
-O domínio possui seis entidades relacionadas:
-
-### `Ubs`
-
-Tabela `ubs`.
-
-- `id`: `Long`, chave primária gerada.
-- `name`: `String`, obrigatório, máximo 120 caracteres.
-- `address`: `String`, obrigatório, máximo 240 caracteres.
-- `city`: `String`, obrigatório, máximo 100 caracteres.
-- `state`: `String`, obrigatório, máximo 2 caracteres.
-- `latitude`: `Double`, opcional.
-- `longitude`: `Double`, opcional.
-
-### `Medication`
-
-Tabela `medications`.
-
-- `id`: `Long`, chave primária gerada.
-- `name`: `String`, obrigatório, máximo 160 caracteres.
-- `activeIngredient`: `String`, obrigatório, máximo 160 caracteres.
-- `description`: `String`, opcional, máximo 500 caracteres.
-
-### `Stock`
-
-Tabela `stocks`, com restrição única em `(ubs_id, medication_id)`.
-
-- `id`: `Long`, chave primária gerada.
-- `ubs`: `@ManyToOne`, obrigatório, `LAZY`, relacionamento com `Ubs`.
-- `medication`: `@ManyToOne`, obrigatório, `LAZY`, relacionamento com `Medication`.
-- `quantity`: `int`, obrigatório.
-- `updatedAt`: `Instant`, obrigatório e atualizado em persistência/atualização.
-
-`Stock` relaciona uma UBS a um medicamento e guarda a quantidade disponível. A listagem retorna somente registros cuja quantidade é maior que zero.
-
-### `AppUser`
-
-Tabela `app_users`, com e-mail único.
-
-- `id`: `Long`, chave primária gerada.
-- `name`: `String`, obrigatório, máximo 120 caracteres.
-- `email`: `String`, obrigatório e único, máximo 180 caracteres; armazenado em minúsculas.
-- `password`: `String`, obrigatório, armazenado com BCrypt.
-- `role`: enum `Role`, obrigatório e armazenado como texto.
-
-Enum `Role`: `CITIZEN`, `PHARMACIST`, `MANAGER`.
-
-### `StockAlert`
-
-Tabela `stock_alerts`.
-
-- `id`: `Long`, chave primária gerada.
-- `user`: `@ManyToOne`, obrigatório, `LAZY`, relacionamento com `AppUser`.
-- `medication`: `@ManyToOne`, obrigatório, `LAZY`, relacionamento com `Medication`.
-- `ubs`: `@ManyToOne`, opcional, `LAZY`, relacionamento com `Ubs`; `null` significa qualquer UBS.
-- `active`: `boolean`, obrigatório, iniciado como `true`.
-- `createdAt`: `Instant`, obrigatório.
-
-### `AppNotification`
-
-Tabela `app_notifications`.
-
-- `id`: `Long`, chave primária gerada.
-- `user`: `@ManyToOne`, obrigatório, `LAZY`, relacionamento com `AppUser`.
-- `message`: `String`, obrigatório, máximo 500 caracteres.
-- `read`: `boolean`, obrigatório.
-- `createdAt`: `Instant`, obrigatório.
-
-Os relacionamentos principais são: `Stock -> Ubs` e `Stock -> Medication`; `StockAlert -> AppUser`, `StockAlert -> Medication` e `StockAlert -> Ubs`; `AppNotification -> AppUser`.
-
-## Papéis e segurança
-
-- `CITIZEN`: consulta UBS, medicamentos e estoques; cria e remove seus alertas; consulta notificações; usa o endpoint de identificação da receita.
-- `PHARMACIST`: pode manter UBS, medicamentos e estoques.
-- `MANAGER`: possui as permissões de farmacêutico e administra usuários e papéis.
-
-`POST /api/auth/register` cria somente `CITIZEN`. `POST /api/auth/login` gera um JWT válido por 3600 segundos. Todas as rotas `/api/**`, exceto cadastro e login, exigem:
-
-```http
-Authorization: Bearer <token>
+```powershell
+git clone https://github.com/Rodrigocsilvaa/MediSUS.git
+Set-Location MediSUS
 ```
 
-Não existe refresh token. Quando o token expirar, o app deve executar login novamente.
+2. Crie seu arquivo local de configuração a partir do exemplo.
 
-## Executar o backend
+```powershell
+Copy-Item .env.example .env
+```
 
-### Pré-requisitos
+3. Edite `.env` no seu computador. Troque as senhas de exemplo do PostgreSQL e do RabbitMQ e configure um `JWT_SECRET` aleatório com pelo menos 32 caracteres. Não publique o arquivo `.env`, senhas ou tokens no GitHub. Para a análise real de receitas, configure também `OPENAI_API_KEY`, `MEDISUS_AI_ENABLED=true` e `MEDISUS_AI_PROVIDER=openai`. Sem essa configuração, o restante da API pode ser usado normalmente.
 
-- Java 17+
-- Maven 3.9+
-- Docker com Docker Compose para PostgreSQL e RabbitMQ
-- Chave OpenAI opcional para a análise de receita
-
-### Configuração
-
-1. Copie `.env.example` para `.env`.
-2. Defina um `JWT_SECRET` próprio com pelo menos 32 caracteres.
-3. Para testar RabbitMQ, mantenha o PostgreSQL e o RabbitMQ disponíveis por meio do Compose.
-4. Para habilitar a IA real, configure `OPENAI_API_KEY`, `MEDISUS_AI_ENABLED=true` e `MEDISUS_AI_PROVIDER=openai`.
-5. Para criar um gestor no primeiro início, configure `BOOTSTRAP_MANAGER_EMAIL` e `BOOTSTRAP_MANAGER_PASSWORD` com 12–72 caracteres.
-
-Nunca coloque o segredo JWT ou a chave OpenAI no Git. Use `.env` local ou um secret manager.
-
-### Docker
+4. Inicie os serviços e a API. Na primeira execução, o Docker poderá levar alguns minutos para baixar imagens e compilar o projeto.
 
 ```powershell
 docker compose up --build
 ```
 
-Swagger: `http://localhost:8080/swagger-ui.html`
+5. Quando a inicialização terminar, abra `http://localhost:8080/swagger-ui.html`. A especificação OpenAPI fica em `http://localhost:8080/v3/api-docs`.
 
-OpenAPI: `http://localhost:8080/v3/api-docs`
+Para encerrar, use `Ctrl+C` e depois execute `docker compose down`. Os dados do PostgreSQL ficam no volume do Docker e são mantidos ao parar os serviços.
 
-No arquivo Docker Compose, PostgreSQL usa a porta 5432 e RabbitMQ usa 5672, além da interface 15672.
+## Execução local com Maven
 
-### Maven local
+Use esta opção para executar a aplicação Java fora do Docker, mantendo PostgreSQL e RabbitMQ em contêineres. O script local carrega as variáveis do arquivo `.env`.
 
-Com PostgreSQL e RabbitMQ ativos:
+1. Inicie as dependências:
 
 ```powershell
 docker compose up -d postgres rabbitmq
+```
+
+2. Em outro terminal, inicie a API:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run-local.ps1
 ```
 
-O script carrega variáveis do `.env` sem imprimir os valores.
+3. Acesse Swagger em `http://localhost:8080/swagger-ui.html`. Para parar os serviços de banco e mensageria, execute `docker compose stop postgres rabbitmq`.
 
-Sem configuração OpenAI, a API inicia normalmente e `POST /api/prescriptions/identify` retorna HTTP `503`. Isso é o comportamento seguro, não um sucesso falso.
+## Criar o primeiro gestor
 
-## API para React Native
+O cadastro público cria somente contas com papel `CITIZEN`. Para cadastrar UBS, medicamentos e estoques, inicie a API com `BOOTSTRAP_MANAGER_EMAIL` e `BOOTSTRAP_MANAGER_PASSWORD` configurados no `.env`. A senha do gestor deve ter entre 12 e 72 caracteres. O gestor inicial é criado quando a API inicia, caso o e-mail ainda não exista. Depois, use essas credenciais no endpoint de login.
 
-### URLs base
+Não há usuários, UBS, medicamentos ou estoques de demonstração pré cadastrados. Use o gestor para criar dados de teste. A senha e o e-mail do gestor são credenciais privadas e devem ser enviados ao colega somente por um canal seguro, quando necessário.
 
-- Android Emulator: `http://10.0.2.2:8080`
-- iOS Simulator: `http://localhost:8080`
-- Aparelho físico: `http://<IP-LAN-da-maquina>:8080`, com PC e celular na mesma rede
-- Produção: use uma URL HTTPS pública
+## Testar a API pelo Swagger
 
-No dispositivo físico, o firewall do PC deve permitir a porta 8080. O app Mobile deve permitir HTTP apenas em ambiente local explícito; em produção, use HTTPS.
-
-### Cadastro
-
-```http
-POST /api/auth/register
-Content-Type: application/json
-
-{
-  "name": "Ana",
-  "email": "ana@example.com",
-  "password": "senha-com-8-ou-mais"
-}
-```
-
-O cadastro público cria sempre `CITIZEN`.
-
-### Login
-
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "ana@example.com",
-  "password": "senha-com-8-ou-mais"
-}
-```
-
-Resposta:
+1. Abra `http://localhost:8080/swagger-ui.html`.
+2. Expanda `POST /api/auth/register`, escolha `Try it out` e envie um cadastro de teste. O cadastro responde `201` e cria um cidadão.
 
 ```json
 {
-  "token": "...",
-  "tokenType": "Bearer",
-  "expiresIn": 3600,
-  "role": "CITIZEN",
-  "name": "Ana"
+  "name": "Pessoa de Teste",
+  "email": "teste@example.com",
+  "password": "senha-local-com-8-caracteres"
 }
 ```
 
-No app, guarde o token em armazenamento seguro adequado à plataforma, envie-o em todas as chamadas protegidas e trate `401` como sessão inválida e `403` como acesso negado ao papel.
+Use esses dados somente em uma instalação local de teste. A senha precisa ter pelo menos 8 caracteres.
 
-### Endpoints principais
+3. Expanda `POST /api/auth/login` e envie o mesmo e-mail e senha. Copie o valor de `token` da resposta.
+4. Clique em `Authorize` no topo do Swagger e informe o token. O Swagger aplica o esquema Bearer nas chamadas protegidas.
+5. Teste `GET /api/ubs`, `GET /api/medications` ou `GET /api/stocks`. Sem dados cadastrados, uma lista vazia é um resultado normal.
+6. Para criar dados, entre com a conta de gestor inicial, autorize o Swagger novamente e use as rotas de UBS, medicamentos e estoque descritas abaixo.
 
-#### Consulta
+Em clientes HTTP fora do Swagger, envie `Authorization: Bearer SEU_TOKEN`. O token expira após o período de `JWT_EXPIRATION_SECONDS`, que por padrão é 3600 segundos. Não há refresh token; faça login novamente após a expiração.
 
-- `GET /api/ubs?page=0&size=20&sort=name,asc`
-- `GET /api/ubs/{id}`
-- `GET /api/medications?page=0&size=20&sort=name,asc`
-- `GET /api/medications/{id}`
-- `GET /api/stocks?page=0&size=20`
-- `GET /api/stocks?medicationId=1&ubsId=1&page=0&size=20`
-- `GET /api/stocks?medicationName=Paracetamol&page=0&size=20`
-- `GET /api/stocks/{id}`
+## Rotas disponíveis
 
-A resposta paginada segue o formato Spring:
+Cadastro, login, Swagger e OpenAPI são públicos. Todas as demais rotas exigem autenticação. As operações de leitura de UBS, medicamentos e estoques podem ser usadas por qualquer usuário autenticado. As operações de escrita desses recursos exigem papel `PHARMACIST` ou `MANAGER`.
 
-```json
-{
-  "content": [],
-  "totalElements": 0,
-  "totalPages": 0,
-  "size": 20,
-  "number": 0
-}
-```
+### Autenticação
 
-Somente estoques com quantidade positiva são listados.
+`POST /api/auth/register` cadastra um cidadão.
 
-#### Criar/manter UBS
+`POST /api/auth/login` autentica a conta e retorna um JWT.
 
-`POST /api/ubs` e `PUT /api/ubs/{id}` exigem `PHARMACIST` ou `MANAGER`.
+### UBS
+
+`GET /api/ubs` lista UBS. `GET /api/ubs/{id}` consulta uma UBS.
+
+`POST /api/ubs` cria uma UBS. `PUT /api/ubs/{id}` atualiza uma UBS. `DELETE /api/ubs/{id}` remove uma UBS. As três operações exigem `PHARMACIST` ou `MANAGER`.
+
+Exemplo de corpo para criar ou atualizar:
 
 ```json
 {
   "name": "UBS Central",
-  "address": "Rua A, 10",
+  "address": "Rua de Exemplo, 10",
   "city": "São Paulo",
   "state": "SP",
   "latitude": -23.55,
@@ -280,9 +114,11 @@ Somente estoques com quantidade positiva são listados.
 }
 ```
 
-#### Criar/manter medicamentos
+### Medicamentos
 
-`POST /api/medications` e `PUT /api/medications/{id}` exigem `PHARMACIST` ou `MANAGER`.
+`GET /api/medications` lista medicamentos. `GET /api/medications/{id}` consulta um medicamento.
+
+`POST /api/medications` cria um medicamento. `PUT /api/medications/{id}` atualiza um medicamento. `DELETE /api/medications/{id}` remove um medicamento. As três operações exigem `PHARMACIST` ou `MANAGER`.
 
 ```json
 {
@@ -292,9 +128,11 @@ Somente estoques com quantidade positiva são listados.
 }
 ```
 
-#### Criar/manter estoque
+### Estoques
 
-`POST /api/stocks` e `PUT /api/stocks/{id}` exigem `PHARMACIST` ou `MANAGER`.
+`GET /api/stocks` lista estoques disponíveis. `GET /api/stocks/{id}` consulta um estoque. A listagem aceita `medicationId`, `ubsId`, `medicationName`, `page`, `size` e `sort`. Exemplos: `GET /api/stocks?medicationId=1&ubsId=1&page=0&size=20` e `GET /api/stocks?medicationName=Paracetamol&page=0&size=20`. Registros com quantidade zero não aparecem na listagem.
+
+`POST /api/stocks` cria ou atualiza o estoque da combinação de UBS e medicamento. `PUT /api/stocks/{id}` atualiza um registro existente. `DELETE /api/stocks/{id}` remove um estoque. As três operações exigem `PHARMACIST` ou `MANAGER`.
 
 ```json
 {
@@ -304,18 +142,13 @@ Somente estoques com quantidade positiva são listados.
 }
 ```
 
-Ao aumentar uma quantidade, o backend publica `StockReplenishedEvent`. Quando o consumidor encontra alertas compatíveis, cria notificações persistidas.
+Ao aumentar a quantidade, a API publica um evento no RabbitMQ. O consumidor pode criar notificações para cidadãos com alertas compatíveis. O processamento é assíncrono, então a notificação pode não aparecer imediatamente.
 
-#### Alertas e notificações
+### Alertas e notificações
 
-Estes endpoints exigem `CITIZEN`:
+As rotas de alerta exigem papel `CITIZEN`.
 
-- `POST /api/alerts`
-- `GET /api/alerts?page=0&size=20`
-- `DELETE /api/alerts/{id}`
-- `GET /api/notifications?page=0&size=20`
-
-Criar alerta:
+`POST /api/alerts` cria um alerta. `GET /api/alerts` lista os alertas da conta autenticada. `DELETE /api/alerts/{id}` desativa um alerta pertencente à conta.
 
 ```json
 {
@@ -324,14 +157,17 @@ Criar alerta:
 }
 ```
 
-`ubsId` é opcional. Quando omitido, o alerta representa o medicamento em qualquer UBS.
+`ubsId` é opcional. Se não for informado, o alerta vale para qualquer UBS.
 
-#### Administração
+`GET /api/notifications` lista as notificações da conta autenticada. `PATCH /api/notifications/{id}/read` marca como lida uma notificação pertencente à conta autenticada.
 
-Exigem `MANAGER`:
+### Usuários
 
-- `GET /api/users?page=0&size=20`
-- `PUT /api/users/{id}/role`
+As duas rotas exigem papel `MANAGER`.
+
+`GET /api/users` lista usuários.
+
+`PUT /api/users/{id}/role` altera o papel de um usuário. Os valores aceitos são `CITIZEN`, `PHARMACIST` e `MANAGER`.
 
 ```json
 {
@@ -339,137 +175,61 @@ Exigem `MANAGER`:
 }
 ```
 
-Papéis válidos: `CITIZEN`, `PHARMACIST`, `MANAGER`.
+### Identificação de receita
 
-### Identificação da receita no Mobile
+`POST /api/prescriptions/identify` exige papel `CITIZEN` e recebe um campo de formulário chamado `image`. Aceita JPEG, PNG ou WebP, com limite de 5 MB. A imagem é processada em memória e não é salva pelo backend. A análise real exige chave OpenAI e configuração do Spring AI. Sem o provedor habilitado, a resposta é `503 Service Unavailable`. O resultado deve ser revisado pela pessoa usuária e não representa diagnóstico ou disponibilidade de estoque.
 
-Endpoint:
+No aplicativo React Native, envie a imagem como `multipart/form-data` e não defina manualmente o cabeçalho `Content-Type`, para que o `fetch` crie o boundary corretamente.
 
-```http
-POST /api/prescriptions/identify
-Authorization: Bearer <token>
-Content-Type: multipart/form-data
+## Conectar um aplicativo ou outro computador
+
+A URL depende de onde o aplicativo está sendo executado.
+
+1. Emulador Android padrão do Android Studio: use `http://10.0.2.2:8080`.
+2. Simulador iOS executado no mesmo Mac da API: use `http://localhost:8080`.
+3. Celular físico na mesma rede Wi Fi do computador: use `http://IP-DA-MAQUINA:8080`. Descubra o endereço local do computador com `ipconfig` no Windows. O firewall precisa permitir a conexão na porta 8080.
+4. Colega em outra rede: `localhost` e o IP local não funcionarão. A API precisa estar implantada em um servidor acessível, com HTTPS, ou em um ambiente de túnel autorizado. Não exponha diretamente uma máquina de desenvolvimento à internet.
+
+O cliente deve guardar o JWT em armazenamento seguro da plataforma, enviar o token nas rotas protegidas e tratar `401` como sessão inválida e `403` como falta de permissão. Mobile nativo não depende de CORS. Expo Web pode exigir uma configuração CORS no backend, que ainda não está definida neste projeto.
+
+## O que enviar ao seu colega para testar
+
+Envie por mensagem os itens abaixo, preenchendo os campos com os dados do ambiente de teste. Não coloque senha, token ou endereço privado no README ou em uma issue pública.
+
+```text
+API base URL: [URL acessível para o seu colega]
+Swagger: [URL base]/swagger-ui.html
+Cadastro: POST [URL base]/api/auth/register
+Login: POST [URL base]/api/auth/login
+Conta de teste: use o cadastro de cidadão ou receba uma conta de teste por canal seguro
+Token: faça login e envie Authorization: Bearer [token]
+Primeira chamada: GET [URL base]/api/ubs?page=0&size=20
 ```
 
-O campo multipart deve se chamar `image`.
+Se o colega precisar testar cadastro de UBS, medicamentos ou estoques, ele também precisará de uma conta `PHARMACIST` ou `MANAGER` e de IDs existentes para relacionar UBS, medicamento e estoque. Para testar alertas, use uma conta `CITIZEN`. Combine o endereço base correto para o dispositivo ou computador do colega antes do teste. Um endereço `localhost` acessível na sua máquina não é automaticamente acessível na máquina dele.
 
-- Permitidos: JPEG, PNG e WebP.
-- Tamanho máximo: 5 MB.
-- Requer papel `CITIZEN`.
-- A API valida o tipo informado no multipart.
-- A imagem é processada em memória e não é persistida pelo backend.
-- Quando OpenAI está configurado, a imagem é enviada ao provedor para análise.
-- O resultado é uma lista de nomes candidatos; o cidadão deve revisar a sugestão.
-- A resposta não consulta estoque nem determina tratamento.
+## Respostas e erros
 
-Exemplo React Native/Fetch:
+As listagens são paginadas. Os parâmetros `page` começam em zero e `size` define a quantidade por página. Uma resposta contém campos como `content`, `totalElements`, `totalPages`, `size` e `number`.
 
-```jsx
-const form = new FormData();
+Erros usam JSON com horário, status HTTP, mensagem, caminho e erros de campos quando aplicável. Os códigos mais comuns são `400` para dados inválidos, `401` para ausência ou invalidade do token, `403` para falta de papel, `404` para recurso inexistente, `409` para conflito, como e-mail já cadastrado, e `503` quando a análise de receita não está disponível.
 
-form.append('image', {
-  uri: photo.uri,
-  name: photo.fileName || 'receita.jpg',
-  type: photo.type || 'image/jpeg',
-});
+## Testes automatizados
 
-const response = await fetch(`${BASE_URL}/api/prescriptions/identify`, {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${token}`,
-  },
-  body: form,
-});
-
-const result = await response.json();
-```
-
-Não defina manualmente `Content-Type: multipart/form-data` no React Native: o próprio `fetch` precisa criar o boundary. Depois que o usuário revisa os candidatos, o app deve consultar separadamente `/api/stocks?medicationName=<nome>` e não assumir que o texto da receita representa disponibilidade real.
-
-## Respostas de erro
-
-Erros são retornados em um envelope JSON padrão:
-
-```json
-{
-  "timestamp": "2026-...",
-  "status": 400,
-  "error": "Bad Request",
-  "message": "Validation failed",
-  "path": "/api/auth/register",
-  "fieldErrors": {
-    "email": "must be a well-formed email address"
-  }
-}
-```
-
-Códigos relevantes:
-
-- `400`: validação, imagem vazia, tipo ou conteúdo incompleto.
-- `401`: token ausente ou inválido.
-- `403`: usuário sem papel necessário.
-- `404`: recurso não encontrado.
-- `409`: conflito, por exemplo e-mail já cadastrado.
-- `503`: Spring AI não configurado ou indisponível.
-
-## Arquitetura distribuída com RabbitMQ
-
-O projeto usa RabbitMQ como opção distribuída, atendendo ao requisito Java Advanced:
-
-- fila durável: `medisus.stock.replenished`
-- publicação JSON em aumento de quantidade de estoque
-- evento contendo identificadores e nomes do estoque, medicamento e UBS
-- consumidor assíncrono procura alertas ativos por medicamento e UBS
-- notificações são persistidas no PostgreSQL
-- dados pessoais não são colocados no conteúdo do evento
-
-A publicação/consumo foi coberta por teste unitário com mocks. A conexão real com o broker ainda precisa ser executada com Docker Compose ativo.
-
-## Spring AI
-
-A funcionalidade usa Spring AI com OpenAI para ler uma imagem de receita e gerar somente nomes candidatos. Ela não diagnostica, não recomenda tratamento, não confirma disponibilidade e não decide elegibilidade à Farmácia Popular.
-
-Quando configurada, o modelo recebe texto de instrução com temperatura zero e a imagem como mídia. A resposta é interpretada como JSON array e filtrada para textos únicos com até 160 caracteres.
-
-O campo `farmaciaPopularEligibility` é sempre `"UNKNOWN"`, pois o projeto não possui uma fonte oficial ou catálogo verificado integrado. Não afirmar elegibilidade sem essa integração.
-
-## Swagger/OpenAPI
-
-Com a API ativa:
-
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI: `http://localhost:8080/v3/api-docs`
-
-Os endpoints, DTOs e respostas podem ser consultados pelo app, pelo Swagger e pelos testes.
-
-## Testes
-
-Execute:
+Execute a partir da pasta do projeto:
 
 ```powershell
 mvn test
 ```
 
-Os testes existentes cobrem:
+Os testes automatizados verificam regras de serviço, segurança e validação, filtro de estoques, publicação e seleção de eventos com mocks, além do comportamento da funcionalidade de IA com modelo simulado. Eles não comprovam conexão com PostgreSQL ou RabbitMQ reais, chamada real à OpenAI, nem integração com um aplicativo Mobile.
 
-- modelo de IA mockado e IA desabilitada;
-- validação e bloqueio de cidadão em operação de UBS;
-- filtro de estoque disponível;
-- publicação de evento ao aumentar estoque;
-- consumidor que seleciona os alertas compatíveis.
+## Segurança e limitações
 
-Os testes usam H2/mock onde necessário. Eles não iniciam um broker RabbitMQ real, PostgreSQL real nem uma conta OpenAI real.
+Nunca envie `.env`, senhas, tokens JWT, chaves de serviço, RMs ou outros dados pessoais ao GitHub. Use credenciais específicas para teste e compartilhe somente com as pessoas que precisam delas, por um canal privado.
 
-## Limitações conhecidas
+O projeto não tem implantação pública configurada, não possui token de renovação e não inclui aplicativo Mobile. A elegibilidade à Farmácia Popular é sempre `UNKNOWN`. O endpoint de receita valida o tipo MIME informado, mas não confirma o conteúdo binário real do arquivo.
 
-- Não há integração ponta a ponta validada com o app Mobile nesta pasta.
-- Não há deploy cloud configurado.
-- Não há refresh token.
-- Não há configuração CORS específica. Mobile nativo não depende de CORS, mas Expo Web pode exigir configuração explícita no backend.
-- Não há catalogação oficial da Farmácia Popular; a disponibilidade dessa elegibilidade fica como `UNKNOWN`.
-- A API valida o MIME informado pelo multipart, mas não verifica magic bytes da imagem.
-- Não há credenciais de demonstração embutidas no repositório.
+## Equipe
 
-## Declaração de uso de IA
-
-Ferramentas de IA generativa foram permitidas pelo docente e usadas como apoio ao desenvolvimento, à documentação e à revisão da implementação. Na funcionalidade do produto, Spring AI com OpenAI recebe uma foto de receita e sugere nomes candidatos. O backend não substitui revisão humana, diagnóstico ou consulta oficial de disponibilidade.
+Projeto desenvolvido para a disciplina Java Advanced, turma 2TDSR. A identificação individual da equipe deve ficar somente nos materiais privados de entrega, não neste README público.
