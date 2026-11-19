@@ -19,6 +19,12 @@ spring:
   ai:
     model:
       chat: ${MEDISUS_AI_PROVIDER:none}
+      embedding: none
+      image: none
+      audio:
+        speech: none
+        transcription: none
+      moderation: none
     openai:
       api-key: ${OPENAI_API_KEY:}
       chat:

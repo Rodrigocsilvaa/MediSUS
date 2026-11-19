@@ -167,11 +167,11 @@ Nunca coloque o segredo JWT ou a chave OpenAI no Git. Use `.env` local ou um sec
 docker compose up --build
 ```
 
-Swagger: `http://localhost:8080/swagger-ui.html`
+Swagger: `http://localhost:8081/swagger-ui.html`
 
-OpenAPI: `http://localhost:8080/v3/api-docs`
+OpenAPI: `http://localhost:8081/v3/api-docs`
 
-No arquivo Docker Compose, PostgreSQL usa a porta 5432 e RabbitMQ usa 5672, além da interface 15672.
+No arquivo Docker Compose, a API fica disponível na porta 8081 do host e continua usando a porta 8080 dentro do container. PostgreSQL usa a porta 55432 do host (5432 dentro do container) e RabbitMQ usa 5672, além da interface 15672.
 
 ### Maven local
 
@@ -184,18 +184,18 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run-local.ps1
 
 O script carrega variáveis do `.env` sem imprimir os valores.
 
-Sem configuração OpenAI, a API inicia normalmente e `POST /api/prescriptions/identify` retorna HTTP `503`. Isso é o comportamento seguro, não um sucesso falso.
+Sem configuração OpenAI, a API inicia normalmente e `POST /api/prescriptions/identify` retorna HTTP `503`. Os modelos OpenAI que não fazem parte do fluxo de chat também ficam desabilitados para que o starter não exija uma chave de áudio/imagem/embedding apenas para iniciar a aplicação. Isso é o comportamento seguro, não um sucesso falso.
 
 ## API para React Native
 
 ### URLs base
 
-- Android Emulator: `http://10.0.2.2:8080`
-- iOS Simulator: `http://localhost:8080`
-- Aparelho físico: `http://<IP-LAN-da-maquina>:8080`, com PC e celular na mesma rede
+- Android Emulator: `http://10.0.2.2:8081`
+- iOS Simulator: `http://localhost:8081`
+- Aparelho físico: `http://<IP-LAN-da-maquina>:8081`, com PC e celular na mesma rede
 - Produção: use uma URL HTTPS pública
 
-No dispositivo físico, o firewall do PC deve permitir a porta 8080. O app Mobile deve permitir HTTP apenas em ambiente local explícito; em produção, use HTTPS.
+No dispositivo físico, o firewall do PC deve permitir a porta 8081. O app Mobile deve permitir HTTP apenas em ambiente local explícito; em produção, use HTTPS.
 
 ### Cadastro
 
@@ -437,8 +437,8 @@ O campo `farmaciaPopularEligibility` é sempre `"UNKNOWN"`, pois o projeto não 
 
 Com a API ativa:
 
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- OpenAPI: `http://localhost:8080/v3/api-docs`
+- Swagger UI: `http://localhost:8081/swagger-ui.html`
+- OpenAPI: `http://localhost:8081/v3/api-docs`
 
 Os endpoints, DTOs e respostas podem ser consultados pelo app, pelo Swagger e pelos testes.
 
