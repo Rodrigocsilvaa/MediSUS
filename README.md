@@ -12,7 +12,7 @@ API REST em Java 17 com Spring Boot para apoiar a busca de medicamentos em UBS d
 
 Turma: **2TDSR**
 
-Os RMs estão reservados para o arquivo `IDENTIFICACAO.txt`, que será colocado somente no ZIP de entrega e não deve ser enviado como informação pessoal no README público.
+Os RMs estão reservados para o arquivo `integrantes e links.txt`, que será colocado somente no ZIP de entrega e não deve ser enviado como informação pessoal no README público.
 
 ## Entrega e validação
 
