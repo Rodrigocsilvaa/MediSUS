@@ -16,17 +16,18 @@ Os RMs estão reservados para o arquivo `IDENTIFICACAO.txt`, que será colocado 
 
 ## Repositório
 
-O repositório público informado para esta entrega é: https://github.com/Rodrigocsilvaa/MediSUS
+Repositório público: [Rodrigocsilvaa/MediSUS](https://github.com/Rodrigocsilvaa/MediSUS)
 
-## Status da integração
+## Entrega e validação
 
-- Compilação Java 17 confirmada.
-- Maven `test` e `package` confirmados com **7 testes**, sem falhas.
-- Configuração do Docker Compose validada.
-- PostgreSQL, RabbitMQ e API não foram iniciados juntos neste ambiente, pois o Docker Engine estava desligado.
-- RabbitMQ, PostgreSQL e a chamada real ao OpenAI ainda dependem de execução com seus serviços e credenciais reais.
-- Não existe um aplicativo Mobile nesta pasta e não foi possível confirmar uma execução ponta a ponta com o app Mobile.
-- Este README documenta o contrato do backend e como o app React Native pode se conectar; não afirma que essa integração já tenha sido executada.
+- Vídeo-pitch: [assistir no YouTube](https://www.youtube.com/watch?v=kMr_TDTlXBU).
+- Build Java 17 e `mvn test`/`mvn package` passaram anteriormente com **7 testes**.
+- Docker Compose foi validado. Um teste ponta a ponta isolado com PostgreSQL, RabbitMQ e API confirmou cadastro/autenticação, UBS, estoque, alerta, reposição, consumo do evento e notificação.
+- O fluxo também foi verificado no ambiente local: o estoque passou de 1 para 2 e o cidadão recebeu a notificação.
+- API publicada no Render: [https://medisus.onrender.com](https://medisus.onrender.com) | [Swagger](https://medisus.onrender.com/swagger-ui/index.html).
+- O Render não tem RabbitMQ configurado; o fluxo assíncrono foi validado localmente com Docker Compose, não no deploy público.
+- A aplicação Mobile não está neste repositório. O README documenta os endpoints e a autenticação para integração React Native, mas não afirma que o app foi executado ponta a ponta com esta API.
+- Uma chamada real ao provedor OpenAI depende de uma chave válida e não foi validada nesta entrega.
 
 ## Tecnologias
 
@@ -423,7 +424,7 @@ O projeto usa RabbitMQ como opção distribuída, atendendo ao requisito Java Ad
 - notificações são persistidas no PostgreSQL
 - dados pessoais não são colocados no conteúdo do evento
 
-A publicação/consumo foi coberta por teste unitário com mocks. A conexão real com o broker ainda precisa ser executada com Docker Compose ativo.
+A publicação e o consumo foram verificados ponta a ponta com RabbitMQ real em Docker Compose: ao aumentar o estoque, o consumidor processou o evento e uma notificação foi persistida e retornada ao cidadão. Essa configuração está disponível localmente; o serviço do Render ainda não tem broker configurado.
 
 ## Spring AI
 
@@ -463,7 +464,7 @@ Os testes usam H2/mock onde necessário. Eles não iniciam um broker RabbitMQ re
 ## Limitações conhecidas
 
 - Não há integração ponta a ponta validada com o app Mobile nesta pasta.
-- Não há deploy cloud configurado.
+- O deploy público no Render não está conectado a um RabbitMQ; notificações geradas por eventos estão validadas localmente.
 - Não há refresh token.
 - Não há configuração CORS específica. Mobile nativo não depende de CORS, mas Expo Web pode exigir configuração explícita no backend.
 - Não há catalogação oficial da Farmácia Popular; a disponibilidade dessa elegibilidade fica como `UNKNOWN`.
