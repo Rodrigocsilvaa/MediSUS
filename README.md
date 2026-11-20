@@ -14,10 +14,6 @@ Turma: **2TDSR**
 
 Os RMs estão reservados para o arquivo `IDENTIFICACAO.txt`, que será colocado somente no ZIP de entrega e não deve ser enviado como informação pessoal no README público.
 
-## Repositório
-
-Repositório público: [Rodrigocsilvaa/MediSUS](https://github.com/Rodrigocsilvaa/MediSUS)
-
 ## Entrega e validação
 
 - Vídeo-pitch: [assistir no YouTube](https://www.youtube.com/watch?v=kMr_TDTlXBU).
